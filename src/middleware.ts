@@ -3,7 +3,7 @@ import { verifySession } from "@/lib/auth-edge";
 
 const PUBLIC_PATHS = ["/login", "/register", "/api/auth/login", "/api/auth/register"];
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   const isPublic = PUBLIC_PATHS.some(
