@@ -5,7 +5,10 @@
       "Bash(npm install *)",
       "Bash(npx tsc *)",
       "Bash(npm run *)",
-      "Bash(npm --version)"
+      "Bash(npm --version)",
+      "Bash(mv src/proxy.ts src/middleware.ts)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
