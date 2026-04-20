@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { hashPassword, createSession, sessionCookieOptions } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
+  try {
   const { email, password } = await req.json() as { email: string; password: string };
 
   if (!email || !password || password.length < 8) {
@@ -36,4 +37,8 @@ export async function POST(req: NextRequest) {
   const res = NextResponse.json({ ok: true });
   res.cookies.set(sessionCookieOptions(token));
   return res;
+  } catch (e) {
+    console.error("[register]", e);
+    return NextResponse.json({ error: String(e) }, { status: 500 });
+  }
 }
