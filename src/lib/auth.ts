@@ -1,16 +1,15 @@
-import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
+import {
+  createSession,
+  verifySession,
+  type SessionPayload,
+} from "./auth-edge";
 
-const SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET ?? "dev-secret-change-in-production"
-);
+export type { SessionPayload };
+export { createSession, verifySession };
+
 const COOKIE_NAME = "session";
-
-export interface SessionPayload {
-  userId: number;
-  email: string;
-}
 
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -21,25 +20,6 @@ export async function verifyPassword(
   hash: string
 ): Promise<boolean> {
   return bcrypt.compare(password, hash);
-}
-
-export async function createSession(payload: SessionPayload): Promise<string> {
-  return new SignJWT({ ...payload })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(SECRET);
-}
-
-export async function verifySession(
-  token: string
-): Promise<SessionPayload | null> {
-  try {
-    const { payload } = await jwtVerify(token, SECRET);
-    return { userId: payload.userId as number, email: payload.email as string };
-  } catch {
-    return null;
-  }
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
