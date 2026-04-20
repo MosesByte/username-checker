@@ -3,7 +3,14 @@
 import { useState } from "react";
 import { Search, CheckCircle, XCircle, HelpCircle, Loader2 } from "lucide-react";
 
-const PLATFORMS = ["guns.lol", "fakecrime.bio"];
+const PLATFORMS = [
+  "guns.lol",
+  "fakecrime.bio",
+  "ysn.lol",
+  "haunt.gg",
+  "emogir.ls",
+  "wound.lol",
+];
 
 type ResultStatus = "taken" | "available" | "unknown";
 

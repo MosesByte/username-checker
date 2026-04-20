@@ -4,17 +4,73 @@ import { getSession } from "@/lib/auth";
 
 type CheckResult = "taken" | "available" | "unknown";
 
-const PLATFORMS: Record<string, (username: string) => string> = {
-  "guns.lol": (u) => `https://guns.lol/${u}`,
-  "fakecrime.bio": (u) => `https://fakecrime.bio/${u}`,
+type MarkerSource = string[] | ((username: string) => string[]);
+
+interface PlatformConfig {
+  url: (username: string) => string;
+  // Any of these strings in the response body means the username is free.
+  availableMarkers?: MarkerSource;
+  // Any of these strings in the response body means the fetch hit an anti-bot/parking page.
+  unknownMarkers?: MarkerSource;
+}
+
+const PLATFORMS: Record<string, PlatformConfig> = {
+  "guns.lol": {
+    url: (u) => `https://guns.lol/${u}`,
+    availableMarkers: [
+      "claim your username",       // English
+      "benutzername nicht gefunden", // German
+      "username not found",
+    ],
+  },
+  "fakecrime.bio": {
+    url: (u) => `https://fakecrime.bio/${u}`,
+  },
+  "ysn.lol": {
+    url: (u) => `https://ysn.lol/${u}`,
+    availableMarkers: [
+      "<title>not found</title>",
+      "username not found",
+      "this username is available",
+    ],
+  },
+  "haunt.gg": {
+    url: (u) => `https://haunt.gg/${u}`,
+  },
+  "emogir.ls": {
+    url: (u) => `https://emogir.ls/${u}`,
+    availableMarkers: [
+      "<title>emogir.ls - build your perfect profile</title>",
+      "create a unique identity that represents you across the web. reserve your username",
+      "404: this page could not be found.",
+    ],
+  },
+  "wound.lol": {
+    url: (u) => `https://wound.lol/${u}`,
+    availableMarkers: [
+      "<title>wound - create your perfect bio link page",
+      "build your digital identity with style",
+      "wound.lol/[input: yourcustomurl]",
+    ],
+    unknownMarkers: [
+      "router.parklogic.com",
+      "tenant\":\"namecheap-expired",
+      "<title>redirecting...</title>",
+    ],
+  },
 };
 
+function resolveMarkers(markers: MarkerSource | undefined, username: string): string[] {
+  if (!markers) return [];
+  return typeof markers === "function" ? markers(username) : markers;
+}
+
 async function checkPlatform(platform: string, username: string): Promise<CheckResult> {
-  const urlFn = PLATFORMS[platform];
-  if (!urlFn) return "unknown";
+  const config = PLATFORMS[platform];
+  if (!config) return "unknown";
 
   try {
-    const res = await fetch(urlFn(username), {
+    const res = await fetch(config.url(username), {
       method: "GET",
       redirect: "follow",
       headers: {
@@ -25,7 +81,23 @@ async function checkPlatform(platform: string, username: string): Promise<CheckR
     });
 
     if (res.status === 404) return "available";
-    if (res.status === 200) return "taken";
+
+    if (res.status === 200) {
+      const text = (await res.text()).toLowerCase();
+      const unknownMarkers = resolveMarkers(config.unknownMarkers, username);
+      if (unknownMarkers.some((marker) => text.includes(marker.toLowerCase()))) {
+        return "unknown";
+      }
+
+      const availableMarkers = resolveMarkers(config.availableMarkers, username);
+      if (availableMarkers.length) {
+        if (availableMarkers.some((marker) => text.includes(marker.toLowerCase()))) {
+          return "available";
+        }
+      }
+      return "taken";
+    }
+
     return "unknown";
   } catch {
     return "unknown";
