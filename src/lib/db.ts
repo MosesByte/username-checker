@@ -1,14 +1,16 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
-interface CloudflareEnv extends Record<string, unknown> {
-  DB: D1Database;
+declare global {
+  interface CloudflareEnv {
+    DB: D1Database;
+  }
 }
 
 let tablesReady = false;
 
 export async function getDb(): Promise<D1Database> {
-  const { env } = await getCloudflareContext<CloudflareEnv>();
-  const db = (env as unknown as { DB: D1Database }).DB;
+  const { env } = getCloudflareContext();
+  const db = env.DB;
   if (!tablesReady) {
     await db.exec(
       `CREATE TABLE IF NOT EXISTS users (
