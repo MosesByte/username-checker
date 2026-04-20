@@ -21,34 +21,40 @@ export async function GET() {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const db = getDb();
-  const entries = db
+  const db = await getDb();
+  const { results } = await db
     .prepare("SELECT * FROM entries WHERE user_id = ? ORDER BY platform, username")
-    .all(session.userId) as Entry[];
+    .bind(session.userId)
+    .all<Entry>();
 
-  return NextResponse.json(entries);
+  return NextResponse.json(results);
 }
 
 export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session) return unauthorized();
 
-  const { platform, username, url, notes } = await req.json();
+  const { platform, username, url, notes } = await req.json() as { platform: string; username: string; url: string; notes?: string };
 
   if (!platform || !username || !url) {
-    return NextResponse.json({ error: "platform, username, and url are required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "platform, username, and url are required" },
+      { status: 400 }
+    );
   }
 
-  const db = getDb();
-  const result = db
+  const db = await getDb();
+  const result = await db
     .prepare(
       "INSERT INTO entries (user_id, platform, username, url, notes) VALUES (?, ?, ?, ?, ?)"
     )
-    .run(session.userId, platform.trim(), username.trim(), url.trim(), notes?.trim() ?? null);
+    .bind(session.userId, platform.trim(), username.trim(), url.trim(), notes?.trim() ?? null)
+    .run();
 
-  const entry = db
+  const entry = await db
     .prepare("SELECT * FROM entries WHERE id = ?")
-    .get(result.lastInsertRowid) as Entry;
+    .bind(result.meta.last_row_id)
+    .first<Entry>();
 
   return NextResponse.json(entry, { status: 201 });
 }

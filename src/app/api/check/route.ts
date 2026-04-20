@@ -9,10 +9,7 @@ const PLATFORMS: Record<string, (username: string) => string> = {
   "fakecrime.bio": (u) => `https://fakecrime.bio/${u}`,
 };
 
-async function checkPlatform(
-  platform: string,
-  username: string
-): Promise<CheckResult> {
+async function checkPlatform(platform: string, username: string): Promise<CheckResult> {
   const urlFn = PLATFORMS[platform];
   if (!urlFn) return "unknown";
 
@@ -38,7 +35,7 @@ async function checkPlatform(
 export async function POST(req: NextRequest) {
   const session = await getSession();
 
-  const { username, platforms } = await req.json() as {
+  const { username, platforms } = (await req.json()) as {
     username: string;
     platforms: string[];
   };
@@ -53,21 +50,24 @@ export async function POST(req: NextRequest) {
   }
 
   const results = await Promise.all(
-    validPlatforms.map(async (platform) => {
-      const result = await checkPlatform(platform, username.trim());
-      return { platform, result };
-    })
+    validPlatforms.map(async (platform) => ({
+      platform,
+      result: await checkPlatform(platform, username.trim()),
+    }))
   );
 
-  // Persist results if user is authenticated
   if (session) {
-    const db = getDb();
-    const insert = db.prepare(
-      "INSERT INTO username_checks (user_id, platform, username, result) VALUES (?, ?, ?, ?)"
+    const db = await getDb();
+    await Promise.all(
+      results.map(({ platform, result }) =>
+        db
+          .prepare(
+            "INSERT INTO username_checks (user_id, platform, username, result) VALUES (?, ?, ?, ?)"
+          )
+          .bind(session.userId, platform, username.trim(), result)
+          .run()
+      )
     );
-    for (const { platform, result } of results) {
-      insert.run(session.userId, platform, username.trim(), result);
-    }
   }
 
   return NextResponse.json({ username, results });
@@ -77,12 +77,13 @@ export async function GET() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const db = getDb();
-  const history = db
+  const db = await getDb();
+  const { results } = await db
     .prepare(
       "SELECT * FROM username_checks WHERE user_id = ? ORDER BY checked_at DESC LIMIT 50"
     )
-    .all(session.userId);
+    .bind(session.userId)
+    .all();
 
-  return NextResponse.json(history);
+  return NextResponse.json(results);
 }

@@ -66,7 +66,7 @@ export default function CheckerPage() {
     });
 
     if (!res.ok) {
-      const data = await res.json();
+      const data = await res.json() as { error?: string };
       setError(data.error ?? "Check failed");
     } else {
       setResult(await res.json());

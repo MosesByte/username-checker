@@ -20,7 +20,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch("/api/entries")
       .then((r) => r.json())
-      .then(setEntries)
+      .then((data) => setEntries(data as Entry[]))
       .finally(() => setLoading(false));
   }, []);
 

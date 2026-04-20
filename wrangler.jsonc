@@ -8,5 +8,12 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "username-checker-db",
+      "database_id": "PLACEHOLDER"
+    }
+  ]
 }

@@ -33,7 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     fetch("/api/auth/me")
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUser(data))
+      .then((data) => setUser(data as User | null))
       .finally(() => setLoading(false));
   }, []);
 
@@ -43,9 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    const data = await res.json() as { error?: string };
     if (!res.ok) return data.error as string;
-    setUser(await fetch("/api/auth/me").then((r) => r.json()));
+    setUser(await fetch("/api/auth/me").then((r) => r.json()) as User);
     router.push("/dashboard");
     return null;
   }, [router]);
@@ -56,9 +56,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await res.json();
+    const data = await res.json() as { error?: string };
     if (!res.ok) return data.error as string;
-    setUser(await fetch("/api/auth/me").then((r) => r.json()));
+    setUser(await fetch("/api/auth/me").then((r) => r.json()) as User);
     router.push("/dashboard");
     return null;
   }, [router]);

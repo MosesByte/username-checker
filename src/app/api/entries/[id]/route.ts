@@ -7,15 +7,6 @@ function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
-async function getEntry(id: string, userId: number): Promise<Entry | null> {
-  const db = getDb();
-  return (
-    db
-      .prepare("SELECT * FROM entries WHERE id = ? AND user_id = ?")
-      .get(Number(id), userId) as Entry | undefined
-  ) ?? null;
-}
-
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -24,25 +15,37 @@ export async function PUT(
   if (!session) return unauthorized();
 
   const { id } = await params;
-  const entry = await getEntry(id, session.userId);
+  const db = await getDb();
+
+  const entry = await db
+    .prepare("SELECT * FROM entries WHERE id = ? AND user_id = ?")
+    .bind(Number(id), session.userId)
+    .first<Entry>();
+
   if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const { platform, username, url, notes } = await req.json();
+  const { platform, username, url, notes } = await req.json() as { platform?: string; username?: string; url?: string; notes?: string };
 
-  const db = getDb();
-  db.prepare(
-    `UPDATE entries
-     SET platform = ?, username = ?, url = ?, notes = ?, updated_at = datetime('now')
-     WHERE id = ?`
-  ).run(
-    platform?.trim() ?? entry.platform,
-    username?.trim() ?? entry.username,
-    url?.trim() ?? entry.url,
-    notes?.trim() ?? entry.notes,
-    Number(id)
-  );
+  await db
+    .prepare(
+      `UPDATE entries
+       SET platform = ?, username = ?, url = ?, notes = ?, updated_at = datetime('now')
+       WHERE id = ?`
+    )
+    .bind(
+      platform?.trim() ?? entry.platform,
+      username?.trim() ?? entry.username,
+      url?.trim() ?? entry.url,
+      notes?.trim() ?? entry.notes,
+      Number(id)
+    )
+    .run();
 
-  const updated = db.prepare("SELECT * FROM entries WHERE id = ?").get(Number(id)) as Entry;
+  const updated = await db
+    .prepare("SELECT * FROM entries WHERE id = ?")
+    .bind(Number(id))
+    .first<Entry>();
+
   return NextResponse.json(updated);
 }
 
@@ -54,9 +57,15 @@ export async function DELETE(
   if (!session) return unauthorized();
 
   const { id } = await params;
-  const entry = await getEntry(id, session.userId);
+  const db = await getDb();
+
+  const entry = await db
+    .prepare("SELECT id FROM entries WHERE id = ? AND user_id = ?")
+    .bind(Number(id), session.userId)
+    .first();
+
   if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  getDb().prepare("DELETE FROM entries WHERE id = ?").run(Number(id));
+  await db.prepare("DELETE FROM entries WHERE id = ?").bind(Number(id)).run();
   return NextResponse.json({ ok: true });
 }
