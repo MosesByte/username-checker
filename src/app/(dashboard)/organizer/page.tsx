@@ -1,20 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  AtSign,
-  ExternalLink,
-  Grid3X3,
-  Layers3,
-  Link2,
-  ListFilter,
-  Mail,
-  Pencil,
-  Plus,
-  Sparkles,
-  Trash2,
-  X,
-} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { DraggablePanel } from "@/components/DraggablePanel";
+import { DetailPanel } from "@/components/DetailPanel";
+import { PanelRow } from "@/components/PanelRow";
+import { SpawnedSubpanel } from "@/components/SpawnedSubpanel";
+import { useClickGuiPanels } from "@/lib/use-clickgui-panels";
 
 interface Entry {
   id: number;
@@ -32,17 +23,18 @@ interface EntryFormData {
   notes: string;
 }
 
-type FilterKey = "all" | "pending" | "designed" | "platforms";
+type PanelId =
+  | "manager"
+  | "profiles"
+  | "platforms"
+  | "pending"
+  | "designed"
+  | "add"
+  | `platform:${string}`
+  | `profile:${number}`
+  | `edit:${number}`;
+
 type DesignStatus = "pending" | "almost" | "designed";
-
-const EMPTY_FORM: EntryFormData = { platform: "", username: "", url: "", notes: "" };
-
-const FILTERS: { key: FilterKey; label: string; icon: React.ReactNode }[] = [
-  { key: "all", label: "All Profiles", icon: <Grid3X3 size={14} /> },
-  { key: "platforms", label: "By Platform", icon: <Layers3 size={14} /> },
-  { key: "pending", label: "Design Pending", icon: <ListFilter size={14} /> },
-  { key: "designed", label: "Designed", icon: <Sparkles size={14} /> },
-];
 
 const SUPPORTED_PLATFORMS = [
   "fakecrime.bio",
@@ -56,43 +48,71 @@ const SUPPORTED_PLATFORMS = [
   "makka.lol",
 ];
 
-const PLATFORM_STYLES = [
-  "border-[#B98CF7]/35 bg-[#B98CF7]/18 text-[#eadcff]",
-  "border-[#7cc7ff]/30 bg-[#7cc7ff]/14 text-[#d7efff]",
-  "border-[#78f2b3]/25 bg-[#78f2b3]/12 text-[#c8ffdf]",
-  "border-[#ffca7a]/30 bg-[#ffca7a]/14 text-[#ffe0ae]",
-  "border-[#ff8fa3]/28 bg-[#ff8fa3]/14 text-[#ffd2da]",
-  "border-white/15 bg-white/[0.06] text-[#d8d0e4]",
-];
+const DEFAULT_FORM: EntryFormData = {
+  platform: SUPPORTED_PLATFORMS[0],
+  username: "",
+  url: `https://${SUPPORTED_PLATFORMS[0]}/`,
+  notes: "pending",
+};
+
+const DEFAULT_POS: Partial<Record<PanelId, { x: number; y: number }>> = {
+  manager: { x: 0, y: 0 },
+  profiles: { x: 196, y: 0 },
+  platforms: { x: 512, y: 0 },
+  pending: { x: 196, y: 340 },
+  designed: { x: 512, y: 340 },
+  add: { x: 830, y: 0 },
+};
 
 export default function OrganizerPage() {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+  const { closePanel, focusPanel, getZ, isActive, togglePanel } =
+    useClickGuiPanels<PanelId>({
+      storageKey: "cgui:organizer",
+      initialActive: { manager: true, profiles: false, platforms: false, pending: false, designed: false, add: false },
+      initialZ: { manager: 20, profiles: 19, platforms: 18, pending: 17, designed: 16, add: 15 },
+    });
+  const [form, setForm] = useState<EntryFormData>(DEFAULT_FORM);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<EntryFormData>(EMPTY_FORM);
-  const [submitting, setSubmitting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
 
   useEffect(() => {
-    loadEntries();
+    void loadEntries();
   }, []);
 
   async function loadEntries() {
     const res = await fetch("/api/entries");
-    setEntries(await res.json());
+    setEntries((await res.json()) as Entry[]);
     setLoading(false);
   }
 
-  function openAdd() {
+  const pendingEntries = useMemo(
+    () => entries.filter((entry) => getDesignStatus(entry.notes) !== "designed"),
+    [entries],
+  );
+  const designedEntries = useMemo(
+    () => entries.filter((entry) => getDesignStatus(entry.notes) === "designed"),
+    [entries],
+  );
+  const grouped = useMemo(
+    () =>
+      entries.reduce<Record<string, Entry[]>>((acc, entry) => {
+        acc[entry.platform] = [...(acc[entry.platform] ?? []), entry];
+        return acc;
+      }, {}),
+    [entries],
+  );
+
+  function openAddPanel() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    setForm(DEFAULT_FORM);
     setError("");
-    setShowForm(true);
+    togglePanel("add");
   }
 
-  function openEdit(entry: Entry) {
+  function openEditPanel(entry: Entry) {
     setEditingId(entry.id);
     setForm({
       platform: entry.platform,
@@ -101,24 +121,19 @@ export default function OrganizerPage() {
       notes: entry.notes ?? "",
     });
     setError("");
-    setShowForm(true);
+    togglePanel(`edit:${entry.id}`);
   }
 
-  function closeForm() {
-    setShowForm(false);
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setError("");
-  }
+  async function saveEntry() {
+    if (!form.username.trim() || !form.platform.trim()) {
+      setError("username + platform required");
+      return;
+    }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
+    setSaving(true);
     setError("");
-
     const method = editingId ? "PUT" : "POST";
     const url = editingId ? `/api/entries/${editingId}` : "/api/entries";
-
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
@@ -126,30 +141,29 @@ export default function OrganizerPage() {
     });
 
     if (!res.ok) {
-      const data = await res.json() as { error?: string };
-      setError(data.error ?? "Something went wrong");
-      setSubmitting(false);
+      const data = (await res.json()) as { error?: string };
+      setError(data.error ?? "save failed");
+      setSaving(false);
       return;
     }
 
     await loadEntries();
-    closeForm();
-    setSubmitting(false);
+    setSaving(false);
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("Delete this entry?")) return;
+  async function deleteEntry(id: number) {
+    if (!confirm("Delete profile?")) return;
     await fetch(`/api/entries/${id}`, { method: "DELETE" });
-    setEntries((prev) => prev.filter((e) => e.id !== id));
+    setEntries((current) => current.filter((entry) => entry.id !== id));
+    closePanel(`profile:${id}`);
+    closePanel(`edit:${id}`);
   }
 
   function updatePlatform(platform: string) {
     setForm((current) => ({
       ...current,
       platform,
-      url: shouldAutofillUrl(current)
-        ? buildProfileUrl(platform, current.username)
-        : current.url,
+      url: shouldAutofillUrl(current) ? buildProfileUrl(platform, current.username) : current.url,
     }));
   }
 
@@ -157,407 +171,252 @@ export default function OrganizerPage() {
     setForm((current) => ({
       ...current,
       username,
-      url: shouldAutofillUrl(current)
-        ? buildProfileUrl(current.platform, username)
-        : current.url,
+      url: shouldAutofillUrl(current) ? buildProfileUrl(current.platform, username) : current.url,
     }));
   }
 
-  const filteredEntries = entries.filter((entry) => {
-    const status = getDesignStatus(entry.notes);
-    if (activeFilter === "pending") return status !== "designed";
-    if (activeFilter === "designed") return status === "designed";
-    return true;
+  const panelProps = (id: PanelId) => ({
+    id: `organizer:${id}`,
+    zIndex: getZ(id),
+    onFocus: () => focusPanel(id),
+    defaultX: getDefaultPosition(id).x,
+    defaultY: getDefaultPosition(id).y,
   });
 
-  const grouped = filteredEntries.reduce<Record<string, Entry[]>>((acc, entry) => {
-    if (!acc[entry.platform]) acc[entry.platform] = [];
-    acc[entry.platform].push(entry);
-    return acc;
-  }, {});
-
-  const pendingCount = entries.filter((entry) => getDesignStatus(entry.notes) !== "designed").length;
-  const designedCount = entries.filter((entry) => getDesignStatus(entry.notes) === "designed").length;
-
   return (
-    <div className="fade-in max-w-7xl">
-      <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.32em] text-[#B98CF7]">
-            user@organizer ~
-          </p>
-          <h1 className="mt-2 flex items-center gap-3 text-3xl font-semibold tracking-tight text-[#f7f0ff] md:text-4xl">
-            <Link2 className="text-[#B98CF7]" size={28} />
-            Linktree Profile Manager
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-[#a99fb8]">
-            Track claimed bios, profile links and design progress in a dense manager view.
-          </p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center justify-center gap-2 rounded-2xl border border-[#B98CF7]/35 bg-[#B98CF7] px-4 py-3 text-sm font-semibold text-[#130c1e] shadow-[0_0_38px_rgba(185,140,247,0.2)] transition-all hover:-translate-y-0.5 hover:bg-[#c8a5ff]"
-        >
-          <Plus size={15} />
-          Add Profile
-        </button>
-      </div>
+    <div className="fade-in relative" style={{ minHeight: 820, minWidth: 1280 }}>
+      <DraggablePanel
+        {...panelProps("manager")}
+        title="Linktree Manager"
+        badge={loading ? "..." : entries.length}
+      >
+        <PanelRow label="All Profiles" badge={entries.length} active={isActive("profiles")} onClick={() => togglePanel("profiles")} />
+        <PanelRow label="By Platform" badge={Object.keys(grouped).length} active={isActive("platforms")} onClick={() => togglePanel("platforms")} />
+        <PanelRow label="Pending" badge={pendingEntries.length} active={isActive("pending")} onClick={() => togglePanel("pending")} />
+        <PanelRow label="Designed" badge={designedEntries.length} active={isActive("designed")} onClick={() => togglePanel("designed")} />
+        <PanelRow separator />
+        <PanelRow label="Add New" badge="+" active={isActive("add")} onClick={openAddPanel} />
+        <PanelRow label="Import" badge="soon" muted />
+        <PanelRow label="Export" badge="soon" muted />
+        <PanelRow separator />
+        <PanelRow label="Checker" href="/checker" />
+        <PanelRow label="Admin Panel" href="/admin" />
+      </DraggablePanel>
 
-      <div className="mb-5 grid gap-3 md:grid-cols-3">
-        <StatCard label="profiles" value={entries.length} />
-        <StatCard label="pending" value={pendingCount} tone="amber" />
-        <StatCard label="designed" value={designedCount} tone="green" />
-      </div>
-
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm">
-          <div className="terminal-panel w-full max-w-lg rounded-3xl p-6">
-            <div className="relative mb-5 flex items-center justify-between">
-              <div>
-                <p className="font-mono text-xs text-[#B98CF7]">profile.record</p>
-                <h2 className="mt-1 text-lg font-medium text-[#f7f0ff]">
-                  {editingId ? "Edit Profile" : "Add Profile"}
-                </h2>
-              </div>
-              <button onClick={closeForm} className="text-[#9b91aa] hover:text-[#f7f0ff]">
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="relative space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <PlatformSelect
-                  label="Platform"
-                  value={form.platform}
-                  onChange={updatePlatform}
-                />
-                <Field
-                  label="Username"
-                  placeholder="e.g. moses"
-                  value={form.username}
-                  onChange={updateUsername}
-                />
-              </div>
-              <Field
-                label="Profile Link"
-                placeholder="https://makka.lol/moses"
-                value={form.url}
-                onChange={(v) => setForm((f) => ({ ...f, url: v }))}
-              />
-              <div>
-                <label className="mb-1.5 block font-mono text-xs text-[#b9afc8]">
-                  Notes / Status
-                </label>
-                <textarea
-                  value={form.notes}
-                  onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                  placeholder="pending, almost, designed, alias: clean, email: ..."
-                  rows={3}
-                  className="w-full resize-none rounded-2xl border border-[#B98CF7]/16 bg-black/25 px-3 py-2 text-sm text-[#f7f0ff] placeholder:text-[#665b75] outline-none transition-all focus:border-[#B98CF7]/45"
-                />
-              </div>
-
-              {error && <p className="text-xs text-red-300">{error}</p>}
-
-              <div className="flex gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={closeForm}
-                  className="flex-1 rounded-2xl border border-white/[0.08] px-4 py-2 text-sm text-[#9b91aa] transition-colors hover:border-[#B98CF7]/30 hover:text-[#f7f0ff]"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex-1 rounded-2xl bg-[#B98CF7] px-4 py-2 text-sm font-semibold text-[#130c1e] transition-colors hover:bg-[#c8a5ff] disabled:opacity-50"
-                >
-                  {submitting ? "Saving..." : editingId ? "Save Changes" : "Add Profile"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {isActive("profiles") && (
+        <SpawnedSubpanel {...panelProps("profiles")} title="Profile List" badge={entries.length}>
+          <EntryList
+            loading={loading}
+            entries={entries}
+            onOpen={(entry) => togglePanel(`profile:${entry.id}`)}
+          />
+        </SpawnedSubpanel>
       )}
 
-      <div className="glass-card overflow-hidden rounded-3xl">
-        <div className="terminal-titlebar flex flex-col gap-3 border-b border-white/[0.06] px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex flex-wrap gap-2">
-            {FILTERS.map((filter) => (
-              <button
-                key={filter.key}
-                onClick={() => setActiveFilter(filter.key)}
-                className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
-                  activeFilter === filter.key
-                    ? "border-[#B98CF7]/45 bg-[#B98CF7]/18 text-[#f7f0ff] shadow-[0_0_24px_rgba(185,140,247,0.14)]"
-                    : "border-white/[0.07] bg-white/[0.025] text-[#9b91aa] hover:border-[#B98CF7]/25 hover:text-[#f7f0ff]"
-                }`}
-              >
-                {filter.icon}
-                {filter.label}
-              </button>
-            ))}
-          </div>
-          <p className="font-mono text-xs text-[#756985]">
-            {filteredEntries.length} visible / {entries.length} total
-          </p>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-24">
-            <div className="h-6 w-6 animate-spin rounded-full border border-[#B98CF7]/20 border-t-[#B98CF7]" />
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="px-6 py-16 text-center">
-            <p className="text-sm text-[#9b91aa]">No profiles yet. Add your first record.</p>
-          </div>
-        ) : activeFilter === "platforms" ? (
-          <div className="space-y-5 p-4">
-            {Object.entries(grouped).map(([platform, platformEntries]) => (
-              <PlatformGroup
+      {isActive("platforms") && (
+        <SpawnedSubpanel {...panelProps("platforms")} title="By Platform" badge={Object.keys(grouped).length}>
+          {Object.entries(grouped).length === 0 ? (
+            <PanelRow label={loading ? "loading..." : "no platforms"} muted />
+          ) : (
+            Object.entries(grouped).map(([platform, platformEntries]) => (
+              <PanelRow
                 key={platform}
-                platform={platform}
-                entries={platformEntries}
-                onEdit={openEdit}
-                onDelete={handleDelete}
+                label={platform}
+                badge={platformEntries.length}
+                active={isActive(`platform:${platform}`)}
+                onClick={() => togglePanel(`platform:${platform}`)}
               />
-            ))}
-          </div>
-        ) : (
-          <ProfileTable entries={filteredEntries} onEdit={openEdit} onDelete={handleDelete} />
-        )}
-      </div>
-    </div>
-  );
-}
+            ))
+          )}
+        </SpawnedSubpanel>
+      )}
 
-function ProfileTable({
-  entries,
-  onEdit,
-  onDelete,
-}: {
-  entries: Entry[];
-  onEdit: (entry: Entry) => void;
-  onDelete: (id: number) => void;
-}) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[940px] border-collapse text-left">
-        <thead>
-          <tr className="border-b border-white/[0.06] text-xs text-[#8f849f]">
-            <HeaderCell icon={<AtSign size={13} />} label="Username" />
-            <HeaderCell icon={<Layers3 size={13} />} label="Platform" />
-            <HeaderCell icon={<Link2 size={13} />} label="Profile Link" />
-            <HeaderCell icon={<Sparkles size={13} />} label="Design Status" />
-            <HeaderCell icon={<Mail size={13} />} label="Notes" />
-            <th className="px-4 py-3 text-right font-mono font-normal">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {entries.map((entry) => (
-            <ProfileRow key={entry.id} entry={entry} onEdit={onEdit} onDelete={onDelete} />
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
+      {isActive("pending") && (
+        <SpawnedSubpanel {...panelProps("pending")} title="Design Pending" badge={pendingEntries.length}>
+          <EntryList loading={loading} entries={pendingEntries} onOpen={(entry) => togglePanel(`profile:${entry.id}`)} />
+        </SpawnedSubpanel>
+      )}
 
-function ProfileRow({
-  entry,
-  onEdit,
-  onDelete,
-}: {
-  entry: Entry;
-  onEdit: (entry: Entry) => void;
-  onDelete: (id: number) => void;
-}) {
-  const status = getDesignStatus(entry.notes);
+      {isActive("designed") && (
+        <SpawnedSubpanel {...panelProps("designed")} title="Designed" badge={designedEntries.length}>
+          <EntryList loading={loading} entries={designedEntries} onOpen={(entry) => togglePanel(`profile:${entry.id}`)} />
+        </SpawnedSubpanel>
+      )}
 
-  return (
-    <tr className="group border-b border-white/[0.055] transition-colors last:border-b-0 hover:bg-white/[0.035]">
-      <td className="px-4 py-3.5">
-        <div className="flex items-center gap-2">
-          <Link2 size={14} className="text-[#cfc5dc]" />
-          <span className="font-semibold text-[#f7f0ff]">{entry.username}</span>
-        </div>
-      </td>
-      <td className="px-4 py-3.5">
-        <PlatformBadge platform={entry.platform} />
-      </td>
-      <td className="px-4 py-3.5">
-        <a
-          href={entry.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 font-mono text-xs text-[#d8d0e4] underline-offset-4 transition-colors hover:text-[#B98CF7] hover:underline"
+      {Object.entries(grouped).map(([platform, platformEntries]) =>
+        isActive(`platform:${platform}`) ? (
+          <SpawnedSubpanel
+            key={platform}
+            {...panelProps(`platform:${platform}`)}
+            title={platform}
+            badge={platformEntries.length}
+          >
+            <EntryList loading={false} entries={platformEntries} onOpen={(entry) => togglePanel(`profile:${entry.id}`)} />
+          </SpawnedSubpanel>
+        ) : null,
+      )}
+
+      {entries.map((entry) =>
+        isActive(`profile:${entry.id}`) ? (
+          <DetailPanel
+            key={entry.id}
+            {...panelProps(`profile:${entry.id}`)}
+            title="Profile Detail"
+            badge={getDesignStatus(entry.notes)}
+          >
+            <PanelRow>
+              <div className="text-[#f0e8ff]">{entry.username}</div>
+              <div className="mt-1 text-[10px] text-[#4a4158]">{entry.platform}</div>
+            </PanelRow>
+            <PanelRow label="Status" badge={getDesignStatus(entry.notes)} />
+            <PanelRow label="Profile Link" badge="open" onClick={() => window.open(entry.url, "_blank", "noopener,noreferrer")} />
+            <PanelRow>
+              <div className="text-[10px] uppercase tracking-widest text-[#4a4158]">notes</div>
+              <div className="mt-1 max-h-24 overflow-y-auto text-[#9f94b1]">{entry.notes || "No notes yet"}</div>
+            </PanelRow>
+            <PanelRow separator />
+            <PanelRow label="Edit State" badge=">" onClick={() => openEditPanel(entry)} />
+            <PanelRow label="Delete" badge="!" onClick={() => void deleteEntry(entry.id)} />
+          </DetailPanel>
+        ) : null,
+      )}
+
+      {(isActive("add") || (editingId && isActive(`edit:${editingId}`))) && (
+        <SpawnedSubpanel
+          {...panelProps(editingId ? `edit:${editingId}` : "add")}
+          title={editingId ? "Profile Editor" : "Add Profile"}
+          badge={saving ? "saving" : "ready"}
+          width="large"
         >
-          {formatUrl(entry.url)}
-          <ExternalLink size={12} />
-        </a>
-      </td>
-      <td className="px-4 py-3.5">
-        <StatusPill status={status} />
-      </td>
-      <td className="max-w-[280px] px-4 py-3.5">
-        <p className="truncate text-sm text-[#a99fb8]">{entry.notes || "No notes yet"}</p>
-      </td>
-      <td className="px-4 py-3.5">
-        <div className="flex justify-end gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
-          <button
-            onClick={() => onEdit(entry)}
-            className="rounded-xl p-2 text-[#8f849f] transition-colors hover:bg-white/[0.06] hover:text-[#f7f0ff]"
-            aria-label={`Edit ${entry.username}`}
-          >
-            <Pencil size={13} />
-          </button>
-          <button
-            onClick={() => onDelete(entry.id)}
-            className="rounded-xl p-2 text-[#8f849f] transition-colors hover:bg-red-400/10 hover:text-red-300"
-            aria-label={`Delete ${entry.username}`}
-          >
-            <Trash2 size={13} />
-          </button>
-        </div>
-      </td>
-    </tr>
+          <ProfileEditor
+            form={form}
+            saving={saving}
+            error={error}
+            onPlatform={updatePlatform}
+            onUsername={updateUsername}
+            onUrl={(url) => setForm((current) => ({ ...current, url }))}
+            onNotes={(notes) => setForm((current) => ({ ...current, notes }))}
+            onSave={() => void saveEntry()}
+          />
+        </SpawnedSubpanel>
+      )}
+    </div>
   );
 }
 
-function PlatformGroup({
-  platform,
+function EntryList({
+  loading,
   entries,
-  onEdit,
-  onDelete,
+  onOpen,
 }: {
-  platform: string;
+  loading: boolean;
   entries: Entry[];
-  onEdit: (entry: Entry) => void;
-  onDelete: (id: number) => void;
+  onOpen: (entry: Entry) => void;
 }) {
+  if (loading) return <PanelRow label="loading profiles..." muted />;
+  if (entries.length === 0) return <PanelRow label="no profiles" muted />;
+
   return (
-    <div className="overflow-hidden rounded-3xl border border-white/[0.07] bg-black/20">
-      <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
-        <PlatformBadge platform={platform} />
-        <span className="font-mono text-xs text-[#756985]">{entries.length} profiles</span>
-      </div>
-      <ProfileTable entries={entries} onEdit={onEdit} onDelete={onDelete} />
+    <div className="max-h-[360px] overflow-y-auto">
+      {entries.map((entry) => (
+        <PanelRow
+          key={entry.id}
+          label={`${entry.platform}/${entry.username}`}
+          badge={getDesignStatus(entry.notes)}
+          onClick={() => onOpen(entry)}
+        />
+      ))}
     </div>
   );
 }
 
-function HeaderCell({ icon, label }: { icon: React.ReactNode; label: string }) {
+function ProfileEditor({
+  form,
+  saving,
+  error,
+  onPlatform,
+  onUsername,
+  onUrl,
+  onNotes,
+  onSave,
+}: {
+  form: EntryFormData;
+  saving: boolean;
+  error: string;
+  onPlatform: (value: string) => void;
+  onUsername: (value: string) => void;
+  onUrl: (value: string) => void;
+  onNotes: (value: string) => void;
+  onSave: () => void;
+}) {
   return (
-    <th className="px-4 py-3 font-mono font-normal">
-      <span className="flex items-center gap-2">
-        {icon}
-        {label}
-      </span>
-    </th>
+    <>
+      <PanelRow>
+        <label className="mb-1 block text-[9px] uppercase tracking-widest text-[#4a4158]">platform</label>
+        <select
+          value={form.platform}
+          onChange={(event) => onPlatform(event.target.value)}
+          onMouseDown={(event) => event.stopPropagation()}
+          className="w-full border border-[#B98CF7]/15 bg-black/50 px-2 py-[5px] font-mono text-[11px] text-[#f0e8ff] outline-none focus:border-[#B98CF7]/40"
+        >
+          {SUPPORTED_PLATFORMS.map((platform) => (
+            <option key={platform} value={platform}>{platform}</option>
+          ))}
+        </select>
+      </PanelRow>
+      <PanelRow>
+        <TextInput label="username" value={form.username} onChange={onUsername} placeholder="moses" />
+      </PanelRow>
+      <PanelRow>
+        <TextInput label="profile link" value={form.url} onChange={onUrl} placeholder="https://makka.lol/moses" />
+      </PanelRow>
+      <PanelRow>
+        <label className="mb-1 block text-[9px] uppercase tracking-widest text-[#4a4158]">notes / status</label>
+        <textarea
+          value={form.notes}
+          onChange={(event) => onNotes(event.target.value)}
+          onMouseDown={(event) => event.stopPropagation()}
+          rows={4}
+          className="w-full resize-none border border-[#B98CF7]/15 bg-black/50 px-2 py-[5px] font-mono text-[11px] text-[#f0e8ff] outline-none focus:border-[#B98CF7]/40"
+        />
+      </PanelRow>
+      {error && <PanelRow label={`error: ${error}`} muted />}
+      <PanelRow label={saving ? "saving..." : "Save Profile"} badge=">" active onClick={onSave} />
+    </>
   );
 }
 
-function PlatformBadge({ platform }: { platform: string }) {
-  return (
-    <span
-      className={`inline-flex rounded-md border px-2 py-1 font-mono text-xs font-semibold ${getPlatformStyle(platform)}`}
-    >
-      {platform}
-    </span>
-  );
-}
-
-function StatusPill({ status }: { status: DesignStatus }) {
-  const styles: Record<DesignStatus, string> = {
-    pending: "border-red-300/20 bg-red-300/14 text-red-200",
-    almost: "border-amber-300/20 bg-amber-300/14 text-amber-200",
-    designed: "border-emerald-300/20 bg-emerald-300/14 text-emerald-200",
-  };
-
-  return (
-    <span className={`inline-flex rounded-md border px-2 py-1 font-mono text-xs font-semibold ${styles[status]}`}>
-      {status}
-    </span>
-  );
-}
-
-function StatCard({
+function TextInput({
   label,
   value,
-  tone = "purple",
-}: {
-  label: string;
-  value: number;
-  tone?: "purple" | "amber" | "green";
-}) {
-  const tones = {
-    purple: "border-[#B98CF7]/18 bg-[#B98CF7]/10 text-[#d8c3ff]",
-    amber: "border-amber-300/18 bg-amber-300/10 text-amber-100",
-    green: "border-emerald-300/18 bg-emerald-300/10 text-emerald-100",
-  };
-
-  return (
-    <div className={`rounded-3xl border px-4 py-3 ${tones[tone]}`}>
-      <p className="font-mono text-xs uppercase tracking-[0.24em] opacity-70">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function Field({
-  label,
   placeholder,
-  value,
   onChange,
 }: {
   label: string;
-  placeholder: string;
   value: string;
-  onChange: (v: string) => void;
+  placeholder: string;
+  onChange: (value: string) => void;
 }) {
   return (
-    <div>
-      <label className="mb-1.5 block font-mono text-xs text-[#b9afc8]">{label}</label>
+    <>
+      <label className="mb-1 block text-[9px] uppercase tracking-widest text-[#4a4158]">{label}</label>
       <input
-        type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
+        onMouseDown={(event) => event.stopPropagation()}
         placeholder={placeholder}
-        className="w-full rounded-2xl border border-[#B98CF7]/16 bg-black/25 px-3 py-2.5 text-sm text-[#f7f0ff] placeholder:text-[#665b75] outline-none transition-all focus:border-[#B98CF7]/45"
+        className="w-full border border-[#B98CF7]/15 bg-black/50 px-2 py-[5px] font-mono text-[11px] text-[#f0e8ff] placeholder:text-[#2a2035] outline-none focus:border-[#B98CF7]/40"
       />
-    </div>
+    </>
   );
 }
 
-function PlatformSelect({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const hasCustomValue = value && !SUPPORTED_PLATFORMS.includes(value);
-
-  return (
-    <div>
-      <label className="mb-1.5 block font-mono text-xs text-[#b9afc8]">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-2xl border border-[#B98CF7]/16 bg-[#090512] px-3 py-2.5 text-sm text-[#f7f0ff] outline-none transition-all focus:border-[#B98CF7]/45"
-      >
-        <option value="">Select platform</option>
-        {hasCustomValue && <option value={value}>{value}</option>}
-        {SUPPORTED_PLATFORMS.map((platform) => (
-          <option key={platform} value={platform}>
-            {platform}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
+function getDefaultPosition(id: PanelId): { x: number; y: number } {
+  if (DEFAULT_POS[id]) return DEFAULT_POS[id];
+  if (id.startsWith("platform:")) return { x: 828, y: 180 };
+  if (id.startsWith("profile:")) return { x: 828, y: 0 };
+  if (id.startsWith("edit:")) return { x: 828, y: 320 };
+  return { x: 0, y: 0 };
 }
 
 function getDesignStatus(notes: string | null): DesignStatus {
@@ -567,18 +426,8 @@ function getDesignStatus(notes: string | null): DesignStatus {
   return "pending";
 }
 
-function getPlatformStyle(platform: string): string {
-  const index = [...platform].reduce((sum, char) => sum + char.charCodeAt(0), 0);
-  return PLATFORM_STYLES[index % PLATFORM_STYLES.length];
-}
-
-function formatUrl(url: string): string {
-  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-}
-
 function shouldAutofillUrl(form: EntryFormData): boolean {
   if (!form.url) return true;
-
   return SUPPORTED_PLATFORMS.some((platform) => {
     if (!form.username) return form.url === `https://${platform}/`;
     return form.url === buildProfileUrl(platform, form.username);
@@ -587,9 +436,7 @@ function shouldAutofillUrl(form: EntryFormData): boolean {
 
 function buildProfileUrl(platform: string, username: string): string {
   if (!platform) return "";
-
   const normalizedUsername = username.trim();
   if (!normalizedUsername) return `https://${platform}/`;
-
   return `https://${platform}/${normalizedUsername}`;
 }

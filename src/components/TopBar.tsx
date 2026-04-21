@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 
@@ -15,9 +16,16 @@ export default function TopBar() {
   const { user } = useAuth();
   const meta = ROUTE_META[pathname] ?? { label: "Workspace", prompt: "user@workspace ~" };
   const handle = user?.username ?? user?.email?.split("@")[0] ?? "guest";
+  const nav = [
+    { href: "/dashboard", label: "dash" },
+    { href: "/checker", label: "checker" },
+    { href: "/organizer", label: "manager" },
+    ...(user?.role === "admin" ? [{ href: "/admin", label: "admin" }] : []),
+  ];
 
   return (
-    <header className="terminal-panel flex flex-col gap-4 rounded-3xl px-4 py-4 md:flex-row md:items-center md:justify-between md:px-5">
+    <header className="terminal-panel flex flex-col gap-4 rounded-3xl px-4 py-4 md:px-5">
+      <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
       <div className="relative">
         <p className="font-mono text-[11px] uppercase tracking-[0.32em] text-[#B98CF7]">
           {meta.label}
@@ -34,6 +42,32 @@ export default function TopBar() {
         </span>
         <span className="rounded-full border border-white/[0.07] bg-white/[0.035] px-3 py-1.5 text-xs text-[#b9afc8]">
           {handle}
+        </span>
+      </div>
+      </div>
+
+      <div className="relative flex flex-wrap items-center gap-2 border-t border-[#B98CF7]/10 pt-3">
+        {nav.map((item) => {
+          const active = pathname === item.href;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`border px-3 py-1.5 font-mono text-[11px] transition-colors ${
+                active
+                  ? "border-[#B98CF7]/50 bg-[#B98CF7]/16 text-[#f0e8ff]"
+                  : "border-[#B98CF7]/14 bg-black/20 text-[#8f849f] hover:border-[#B98CF7]/35 hover:text-[#d9c8f5]"
+              }`}
+            >
+              /{item.label}
+            </Link>
+          );
+        })}
+        <span className="border border-[#B98CF7]/10 bg-black/10 px-3 py-1.5 font-mono text-[11px] text-[#4a4158] opacity-50">
+          /analytics soon
+        </span>
+        <span className="border border-[#B98CF7]/10 bg-black/10 px-3 py-1.5 font-mono text-[11px] text-[#4a4158] opacity-50">
+          /settings soon
         </span>
       </div>
     </header>

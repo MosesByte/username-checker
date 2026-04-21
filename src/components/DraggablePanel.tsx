@@ -1,12 +1,13 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect, type ReactNode } from "react";
+import { useRef, useState, useCallback, type ReactNode } from "react";
 
-export type PanelWidth = "normal" | "wide";
+export type PanelWidth = "normal" | "wide" | "large";
 
 const WIDTH: Record<PanelWidth, string> = {
   normal: "w-44",
   wide: "w-[300px]",
+  large: "w-[420px]",
 };
 
 // How many pixels the mouse must move before it counts as a drag (not a click).
@@ -20,6 +21,7 @@ interface Props {
   defaultY?: number;
   zIndex: number;
   onFocus: () => void;
+  onClose?: () => void;
   width?: PanelWidth;
   children: ReactNode;
 }
@@ -32,11 +34,28 @@ export function DraggablePanel({
   defaultY = 0,
   zIndex,
   onFocus,
+  onClose,
   width = "normal",
   children,
 }: Props) {
-  const [pos, setPos] = useState({ x: defaultX, y: defaultY });
-  const [minimized, setMinimized] = useState(false);
+  const [pos, setPos] = useState(() => {
+    if (typeof window === "undefined") return { x: defaultX, y: defaultY };
+    try {
+      const rawPos = localStorage.getItem(`cgui:pos:${id}`);
+      if (rawPos) return JSON.parse(rawPos) as { x: number; y: number };
+    } catch {
+      // ignore
+    }
+    return { x: defaultX, y: defaultY };
+  });
+  const [minimized, setMinimized] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem(`cgui:min:${id}`) === "1";
+    } catch {
+      return false;
+    }
+  });
   const panelRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{
     sx: number;
@@ -45,19 +64,6 @@ export function DraggablePanel({
     oy: number;
     moved: boolean;
   } | null>(null);
-
-  // Load saved position + minimized state after mount (SSR-safe)
-  useEffect(() => {
-    try {
-      const rawPos = localStorage.getItem(`cgui:pos:${id}`);
-      if (rawPos) setPos(JSON.parse(rawPos) as { x: number; y: number });
-
-      const rawMin = localStorage.getItem(`cgui:min:${id}`);
-      if (rawMin) setMinimized(rawMin === "1");
-    } catch {
-      // ignore
-    }
-  }, [id]);
 
   const persist = useCallback(
     (p: { x: number; y: number }) => {
@@ -108,7 +114,6 @@ export function DraggablePanel({
     }
     drag.current = null;
     window.removeEventListener("mousemove", onMouseMove);
-    window.removeEventListener("mouseup", onMouseUp);
   }, [onMouseMove, toggleMin]);
 
   // Header mousedown starts drag tracking; actual movement is deferred until
@@ -125,7 +130,7 @@ export function DraggablePanel({
         moved: false,
       };
       window.addEventListener("mousemove", onMouseMove);
-      window.addEventListener("mouseup", onMouseUp);
+      window.addEventListener("mouseup", onMouseUp, { once: true });
     },
     [pos, onMouseMove, onMouseUp],
   );
@@ -151,6 +156,20 @@ export function DraggablePanel({
         <div className="flex items-center gap-2">
           {badge !== undefined && badge !== "" && (
             <span className="font-mono text-[10px] text-[#B98CF7]">{badge}</span>
+          )}
+          {onClose && (
+            <button
+              type="button"
+              className="font-mono text-[10px] text-[#6d607e] transition-colors hover:text-[#f0e8ff]"
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onClose();
+              }}
+              aria-label={`Close ${title}`}
+            >
+              x
+            </button>
           )}
           <span className="font-mono text-[10px] text-[#4a4158]">
             {minimized ? "▸" : "▾"}
