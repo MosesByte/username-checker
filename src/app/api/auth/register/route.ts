@@ -4,39 +4,64 @@ import { hashPassword, createSession, sessionCookieOptions } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-  const { email, password } = await req.json() as { email: string; password: string };
+    const { username, email, password, inviteCode } = await req.json() as {
+      username: string;
+      email?: string;
+      password: string;
+      inviteCode: string;
+    };
+    const normalizedUsername = username?.trim().toLowerCase();
+    const normalizedEmail = email?.trim().toLowerCase() || `${normalizedUsername}@local.user`;
+    const normalizedCode = inviteCode?.trim();
 
-  if (!email || !password || password.length < 8) {
-    return NextResponse.json(
-      { error: "Valid email and password (min 8 chars) required" },
-      { status: 400 }
-    );
-  }
+    if (!normalizedUsername || !password || password.length < 8 || !normalizedCode) {
+      return NextResponse.json(
+        { error: "Username, invite code and password (min 8 chars) required" },
+        { status: 400 }
+      );
+    }
 
-  const db = await getDb();
-  const existing = await db
-    .prepare("SELECT id FROM users WHERE email = ?")
-    .bind(email)
-    .first();
+    const db = await getDb();
+    const existing = await db
+      .prepare("SELECT id FROM users WHERE email = ? OR username = ?")
+      .bind(normalizedEmail, normalizedUsername)
+      .first();
 
-  if (existing) {
-    return NextResponse.json({ error: "Email already registered" }, { status: 409 });
-  }
+    if (existing) {
+      return NextResponse.json({ error: "Username or email already registered" }, { status: 409 });
+    }
 
-  const password_hash = await hashPassword(password);
-  const result = await db
-    .prepare("INSERT INTO users (email, password_hash) VALUES (?, ?)")
-    .bind(email, password_hash)
-    .run();
+    const invite = await db
+      .prepare("SELECT id FROM invite_codes WHERE code = ? AND used_at IS NULL")
+      .bind(normalizedCode)
+      .first<{ id: number }>();
 
-  const token = await createSession({
-    userId: result.meta.last_row_id as number,
-    email,
-  });
+    if (!invite) {
+      return NextResponse.json({ error: "Invalid or already used invite code" }, { status: 403 });
+    }
 
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(sessionCookieOptions(token));
-  return res;
+    const password_hash = await hashPassword(password);
+    const result = await db
+      .prepare("INSERT INTO users (email, username, password_hash, role) VALUES (?, ?, ?, 'user')")
+      .bind(normalizedEmail, normalizedUsername, password_hash)
+      .run();
+    const userId = result.meta.last_row_id as number;
+
+    await db
+      .prepare("UPDATE invite_codes SET used_by = ?, used_at = datetime('now') WHERE id = ?")
+      .bind(userId, invite.id)
+      .run();
+
+    const token = await createSession({
+      userId,
+      email: normalizedEmail,
+      username: normalizedUsername,
+      role: "user",
+    });
+
+    const res = NextResponse.json({ ok: true });
+    res.cookies.set(sessionCookieOptions(token));
+    return res;
   } catch (e) {
     console.error("[register]", e);
     return NextResponse.json({ error: String(e) }, { status: 500 });

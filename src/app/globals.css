@@ -1,7 +1,20 @@
 @import "tailwindcss";
 
 @theme inline {
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+:root {
+  --background: #08050f;
+  --panel: rgba(17, 12, 28, 0.74);
+  --panel-strong: rgba(25, 18, 38, 0.88);
+  --border: rgba(185, 140, 247, 0.18);
+  --border-strong: rgba(185, 140, 247, 0.38);
+  --accent: #b98cf7;
+  --accent-soft: rgba(185, 140, 247, 0.16);
+  --text: #f3eefc;
+  --muted: #9b91aa;
 }
 
 * {
@@ -13,6 +26,114 @@ body {
   height: 100%;
 }
 
+body {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(185, 140, 247, 0.18), transparent 28rem),
+    radial-gradient(circle at 82% 4%, rgba(117, 82, 184, 0.13), transparent 25rem),
+    linear-gradient(135deg, #08050f 0%, #0d0717 45%, #08050f 100%);
+  color: var(--text);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.5), transparent 70%);
+}
+
+.terminal-panel {
+  position: relative;
+  border: 1px solid var(--border);
+  background: linear-gradient(145deg, rgba(18, 12, 30, 0.88), rgba(9, 6, 17, 0.72));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.025) inset,
+    0 24px 80px rgba(0, 0, 0, 0.38),
+    0 0 80px rgba(185, 140, 247, 0.08);
+  backdrop-filter: blur(24px);
+}
+
+.terminal-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(185, 140, 247, 0.16), transparent 30%, transparent 70%, rgba(185, 140, 247, 0.08));
+  opacity: 0.55;
+}
+
+.terminal-titlebar {
+  border-bottom: 1px solid rgba(185, 140, 247, 0.14);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.terminal-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  box-shadow: 0 0 14px currentColor;
+}
+
+.terminal-cursor {
+  display: inline-block;
+  width: 0.55em;
+  height: 1.1em;
+  margin-left: 0.35rem;
+  transform: translateY(0.16em);
+  background: var(--accent);
+  box-shadow: 0 0 14px rgba(185, 140, 247, 0.8);
+  animation: cursor-blink 1.3s steps(2, start) infinite;
+}
+
+.glass-card {
+  border: 1px solid rgba(185, 140, 247, 0.14);
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(18px);
+}
+
+.glow-hover {
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.glow-hover:hover {
+  border-color: rgba(185, 140, 247, 0.36);
+  background: rgba(185, 140, 247, 0.08);
+  box-shadow: 0 0 42px rgba(185, 140, 247, 0.12);
+}
+
+.fade-in {
+  animation: fade-in 420ms ease both;
+}
+
+@keyframes cursor-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  46%,
+  100% {
+    opacity: 0.18;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -20,6 +141,6 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3f3f46;
+  background: rgba(185, 140, 247, 0.36);
   border-radius: 3px;
 }

@@ -6,9 +6,11 @@ import Link from "next/link";
 
 export default function RegisterPage() {
   const { register } = useAuth();
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -20,7 +22,7 @@ export default function RegisterPage() {
     }
     setLoading(true);
     setError("");
-    const err = await register(email, password);
+    const err = await register(username, email, password, inviteCode);
     if (err) setError(err);
     setLoading(false);
   }
@@ -38,13 +40,34 @@ export default function RegisterPage() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Email</label>
+              <label className="block text-xs text-zinc-400 mb-1.5">Username</label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="yourname"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Email optional</label>
               <input
                 type="email"
-                required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1.5">Invite code</label>
+              <input
+                type="text"
+                required
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+                placeholder="Paste your invite code"
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
               />
             </div>

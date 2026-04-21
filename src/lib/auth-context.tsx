@@ -13,13 +13,20 @@ import { useRouter } from "next/navigation";
 interface User {
   userId: number;
   email: string;
+  username?: string | null;
+  role?: string;
 }
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<string | null>;
-  register: (email: string, password: string) => Promise<string | null>;
+  login: (identifier: string, password: string) => Promise<string | null>;
+  register: (
+    username: string,
+    email: string,
+    password: string,
+    inviteCode: string
+  ) => Promise<string | null>;
   logout: () => Promise<void>;
 }
 
@@ -37,11 +44,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (identifier: string, password: string) => {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ identifier, password }),
     });
     const data = await res.json() as { error?: string };
     if (!res.ok) return data.error as string;
@@ -50,11 +57,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return null;
   }, [router]);
 
-  const register = useCallback(async (email: string, password: string) => {
+  const register = useCallback(async (
+    username: string,
+    email: string,
+    password: string,
+    inviteCode: string
+  ) => {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ username, email, password, inviteCode }),
     });
     const data = await res.json() as { error?: string };
     if (!res.ok) return data.error as string;

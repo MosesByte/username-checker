@@ -6,7 +6,7 @@ import Link from "next/link";
 
 export default function LoginPage() {
   const { login } = useAuth();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const err = await login(email, password);
+    const err = await login(identifier, password);
     if (err) setError(err);
     setLoading(false);
   }
@@ -31,13 +31,13 @@ export default function LoginPage() {
         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Email</label>
+              <label className="block text-xs text-zinc-400 mb-1.5">Username or email</label>
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="moses"
                 className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
               />
             </div>

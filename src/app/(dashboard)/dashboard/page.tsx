@@ -27,23 +27,31 @@ export default function DashboardPage() {
   const platforms = [...new Set(entries.map((e) => e.platform))];
 
   return (
-    <div className="max-w-4xl">
-      <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-white">
+    <div className="fade-in max-w-6xl">
+      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.32em] text-[#B98CF7]">
+            user@dashboard ~
+          </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#f7f0ff] md:text-4xl">
           Welcome back{user?.email ? `, ${user.email.split("@")[0]}` : ""}
         </h1>
-        <p className="text-zinc-400 mt-1 text-sm">
-          Here&apos;s a summary of your username portfolio.
+        <p className="mt-2 max-w-xl text-sm leading-6 text-[#a99fb8]">
+          A calm command center for your bio links, saved handles and availability checks.
         </p>
+        </div>
+        <div className="rounded-2xl border border-[#B98CF7]/18 bg-[#B98CF7]/10 px-4 py-3 font-mono text-xs text-[#d8c3ff]">
+          workspace.online
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Total Entries" value={entries.length} />
         <StatCard label="Platforms" value={platforms.length} />
         <StatCard label="Recent Additions" value={entries.slice(0, 5).length} />
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <QuickLink
           href="/organizer"
           icon={<AtSign size={18} />}
@@ -54,38 +62,42 @@ export default function DashboardPage() {
           href="/checker"
           icon={<Search size={18} />}
           title="Username Checker"
-          desc="Check availability on guns.lol and more"
+          desc="Check availability on lightweight bio platforms"
         />
       </div>
 
       {!loading && entries.length > 0 && (
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-medium text-zinc-300">Recent Entries</h2>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-mono text-xs uppercase tracking-[0.24em] text-[#B98CF7]">
+              recent_entries
+            </h2>
             <Link
               href="/organizer"
-              className="text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition-colors"
+              className="flex items-center gap-1 text-xs text-[#9b91aa] transition-colors hover:text-[#f7f0ff]"
             >
               View all <ArrowRight size={12} />
             </Link>
           </div>
-          <div className="rounded-lg border border-zinc-800 overflow-hidden">
+          <div className="overflow-hidden rounded-3xl border border-[#B98CF7]/14 bg-black/20">
             {entries.slice(0, 5).map((entry, i) => (
               <div
                 key={entry.id}
-                className={`flex items-center justify-between px-4 py-3 text-sm ${
-                  i !== 0 ? "border-t border-zinc-800" : ""
+                className={`flex items-center justify-between gap-4 px-4 py-3.5 text-sm transition-colors hover:bg-white/[0.03] ${
+                  i !== 0 ? "border-t border-white/[0.06]" : ""
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-zinc-500 text-xs w-24 truncate">{entry.platform}</span>
-                  <span className="text-zinc-200">@{entry.username}</span>
+                  <span className="w-28 truncate font-mono text-xs text-[#8f849f]">
+                    {entry.platform}
+                  </span>
+                  <span className="text-[#f7f0ff]">@{entry.username}</span>
                 </div>
                 <a
                   href={entry.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
+                  className="truncate text-xs text-[#8f849f] transition-colors hover:text-[#B98CF7]"
                 >
                   {entry.url.replace(/^https?:\/\//, "").slice(0, 30)}
                 </a>
@@ -96,11 +108,11 @@ export default function DashboardPage() {
       )}
 
       {!loading && entries.length === 0 && (
-        <div className="rounded-lg border border-zinc-800 border-dashed p-10 text-center">
-          <p className="text-zinc-500 text-sm">No entries yet.</p>
+        <div className="glass-card rounded-3xl border-dashed p-10 text-center">
+          <p className="text-sm text-[#9b91aa]">No entries yet.</p>
           <Link
             href="/organizer"
-            className="mt-3 inline-flex items-center gap-2 text-sm text-white bg-zinc-800 hover:bg-zinc-700 px-4 py-2 rounded-md transition-colors"
+            className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-[#B98CF7]/30 bg-[#B98CF7]/15 px-4 py-2 text-sm text-[#f7f0ff] transition-colors hover:bg-[#B98CF7]/25"
           >
             Add your first entry <ArrowRight size={14} />
           </Link>
@@ -112,9 +124,11 @@ export default function DashboardPage() {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 px-5 py-4">
-      <p className="text-xs text-zinc-500 mb-1">{label}</p>
-      <p className="text-2xl font-semibold text-white">{value}</p>
+    <div className="glass-card glow-hover rounded-3xl px-5 py-5">
+      <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.22em] text-[#9b91aa]">
+        {label}
+      </p>
+      <p className="text-3xl font-semibold text-[#f7f0ff]">{value}</p>
     </div>
   );
 }
@@ -133,14 +147,14 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="group flex items-start gap-4 rounded-lg border border-zinc-800 bg-zinc-900/50 px-5 py-4 hover:border-zinc-700 hover:bg-zinc-900 transition-all"
+      className="glass-card glow-hover group flex items-start gap-4 rounded-3xl px-5 py-5"
     >
-      <div className="mt-0.5 text-zinc-400 group-hover:text-white transition-colors">
+      <div className="mt-0.5 rounded-2xl border border-[#B98CF7]/20 bg-[#B98CF7]/10 p-3 text-[#B98CF7] transition-colors group-hover:text-[#d8c3ff]">
         {icon}
       </div>
       <div>
-        <p className="text-sm font-medium text-zinc-200 group-hover:text-white">{title}</p>
-        <p className="text-xs text-zinc-500 mt-0.5">{desc}</p>
+        <p className="text-sm font-medium text-[#f7f0ff]">{title}</p>
+        <p className="mt-1 text-xs leading-5 text-[#9b91aa]">{desc}</p>
       </div>
     </Link>
   );

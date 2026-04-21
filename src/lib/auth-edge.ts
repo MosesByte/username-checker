@@ -7,6 +7,8 @@ const SECRET = new TextEncoder().encode(
 export interface SessionPayload {
   userId: number;
   email: string;
+  username?: string | null;
+  role?: string;
 }
 
 export async function createSession(payload: SessionPayload): Promise<string> {
@@ -22,7 +24,12 @@ export async function verifySession(
 ): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, SECRET);
-    return { userId: payload.userId as number, email: payload.email as string };
+    return {
+      userId: payload.userId as number,
+      email: payload.email as string,
+      username: payload.username as string | null | undefined,
+      role: payload.role as string | undefined,
+    };
   } catch {
     return null;
   }

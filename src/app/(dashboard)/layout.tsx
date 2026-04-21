@@ -1,4 +1,5 @@
 import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 export default function DashboardLayout({
@@ -8,9 +9,16 @@ export default function DashboardLayout({
 }) {
   return (
     <ProtectedRoute>
-      <div className="flex min-h-screen">
+      <div className="min-h-screen p-3 md:p-4">
+        <div className="mx-auto flex min-h-[calc(100vh-1.5rem)] max-w-[1600px] flex-col gap-4 lg:min-h-[calc(100vh-2rem)] lg:flex-row">
         <Sidebar />
-        <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+          <div className="flex min-w-0 flex-1 flex-col gap-4">
+            <TopBar />
+            <main className="terminal-panel relative min-h-[70vh] flex-1 overflow-hidden rounded-3xl p-4 md:p-6 lg:p-8">
+              <div className="relative z-10">{children}</div>
+            </main>
+          </div>
+        </div>
       </div>
     </ProtectedRoute>
   );
