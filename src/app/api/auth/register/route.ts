@@ -4,13 +4,15 @@ import { hashPassword, createSession, sessionCookieOptions } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, email, password, inviteCode } = await req.json() as {
+    const { username, name, email, password, inviteCode } = await req.json() as {
       username: string;
+      name?: string;
       email?: string;
       password: string;
       inviteCode: string;
     };
     const normalizedUsername = username?.trim().toLowerCase();
+    const normalizedName = name?.trim() || null;
     const normalizedEmail = email?.trim().toLowerCase() || `${normalizedUsername}@local.user`;
     const normalizedCode = inviteCode?.trim();
 
@@ -42,8 +44,8 @@ export async function POST(req: NextRequest) {
 
     const password_hash = await hashPassword(password);
     const result = await db
-      .prepare("INSERT INTO users (email, username, password_hash, role) VALUES (?, ?, ?, 'user')")
-      .bind(normalizedEmail, normalizedUsername, password_hash)
+      .prepare("INSERT INTO users (email, username, name, password_hash, role) VALUES (?, ?, ?, ?, 'user')")
+      .bind(normalizedEmail, normalizedUsername, normalizedName, password_hash)
       .run();
     const userId = result.meta.last_row_id as number;
 
@@ -56,6 +58,7 @@ export async function POST(req: NextRequest) {
       userId,
       email: normalizedEmail,
       username: normalizedUsername,
+      name: normalizedName,
       role: "user",
     });
 

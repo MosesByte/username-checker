@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 
 export default function RegisterPage() {
   const { register } = useAuth();
   const [username, setUsername] = useState("");
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -14,102 +15,130 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setError("Passwords do not match");
+      setError("passwords do not match");
       return;
     }
     setLoading(true);
     setError("");
-    const err = await register(username, email, password, inviteCode);
+    const err = await register(username, name, email, password, inviteCode);
     if (err) setError(err);
     setLoading(false);
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#08050f] px-4 py-8">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-xl font-semibold text-white">Create an account</h1>
-          <p className="text-zinc-500 text-sm mt-1">
-            Start managing your usernames
-          </p>
+        <div className="mb-6">
+          <p className="font-mono text-xs text-[#B98CF7]">&gt;_ register</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="border border-[#B98CF7]/20 bg-[#0d0717]">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#B98CF7]/15 bg-white/[0.02]">
+            <span className="terminal-dot bg-[#ff5f57]" />
+            <span className="terminal-dot bg-[#febc2e]" />
+            <span className="terminal-dot bg-[#28c840]" />
+            <span className="ml-2 font-mono text-[11px] text-[#6b6278]">username-manager — register</span>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Username</label>
+              <label className="block font-mono text-[11px] uppercase tracking-widest text-[#6b6278] mb-1.5">
+                username
+              </label>
               <input
                 type="text"
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="yourname"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                className="w-full bg-transparent border border-[#B98CF7]/15 px-3 py-2 font-mono text-sm text-[#f3eefc] placeholder-[#3d3547] focus:outline-none focus:border-[#B98CF7]/50 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Email optional</label>
+              <label className="block font-mono text-[11px] uppercase tracking-widest text-[#6b6278] mb-1.5">
+                name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your Name"
+                className="w-full bg-transparent border border-[#B98CF7]/15 px-3 py-2 font-mono text-sm text-[#f3eefc] placeholder-[#3d3547] focus:outline-none focus:border-[#B98CF7]/50 transition-colors"
+              />
+            </div>
+            <div>
+              <label className="block font-mono text-[11px] uppercase tracking-widest text-[#6b6278] mb-1.5">
+                email <span className="text-[#3d3547]">optional</span>
+              </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                className="w-full bg-transparent border border-[#B98CF7]/15 px-3 py-2 font-mono text-sm text-[#f3eefc] placeholder-[#3d3547] focus:outline-none focus:border-[#B98CF7]/50 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Invite code</label>
+              <label className="block font-mono text-[11px] uppercase tracking-widest text-[#6b6278] mb-1.5">
+                invite code
+              </label>
               <input
                 type="text"
                 required
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value)}
-                placeholder="Paste your invite code"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                placeholder="paste invite code"
+                className="w-full bg-transparent border border-[#B98CF7]/15 px-3 py-2 font-mono text-sm text-[#f3eefc] placeholder-[#3d3547] focus:outline-none focus:border-[#B98CF7]/50 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Password</label>
+              <label className="block font-mono text-[11px] uppercase tracking-widest text-[#6b6278] mb-1.5">
+                password
+              </label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Min. 8 characters"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                placeholder="min. 8 characters"
+                className="w-full bg-transparent border border-[#B98CF7]/15 px-3 py-2 font-mono text-sm text-[#f3eefc] placeholder-[#3d3547] focus:outline-none focus:border-[#B98CF7]/50 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Confirm password</label>
+              <label className="block font-mono text-[11px] uppercase tracking-widest text-[#6b6278] mb-1.5">
+                confirm password
+              </label>
               <input
                 type="password"
                 required
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Repeat password"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                placeholder="repeat password"
+                className="w-full bg-transparent border border-[#B98CF7]/15 px-3 py-2 font-mono text-sm text-[#f3eefc] placeholder-[#3d3547] focus:outline-none focus:border-[#B98CF7]/50 transition-colors"
               />
             </div>
 
-            {error && <p className="text-red-400 text-xs">{error}</p>}
+            {error && (
+              <p className="font-mono text-xs text-red-400">&gt; error: {error}</p>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-white text-zinc-900 text-sm font-medium py-2.5 rounded-md hover:bg-zinc-100 transition-colors disabled:opacity-50"
+              className="w-full border border-[#B98CF7]/30 bg-[#B98CF7]/10 px-4 py-2.5 font-mono text-sm text-[#f3eefc] hover:bg-[#B98CF7]/20 hover:border-[#B98CF7]/50 transition-colors disabled:opacity-40 text-left"
             >
-              {loading ? "Creating account..." : "Create account"}
+              {loading ? "..." : "→ create account"}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-sm text-zinc-500 mt-4">
-          Already have an account?{" "}
-          <Link href="/login" className="text-zinc-300 hover:text-white transition-colors">
-            Sign in
+        <p className="mt-4 font-mono text-xs text-[#6b6278]">
+          have an account?{" "}
+          <Link href="/login" className="text-[#B98CF7] hover:text-[#d8c3ff] transition-colors">
+            sign in
           </Link>
         </p>
       </div>

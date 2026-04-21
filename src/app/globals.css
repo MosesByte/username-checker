@@ -134,6 +134,31 @@ body::before {
   }
 }
 
+.clickgui-grid {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr 1fr 1fr 1fr;
+  gap: 6px;
+  align-items: start;
+}
+
+@media (max-width: 1199px) {
+  .clickgui-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .cgui-checker {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 767px) {
+  .clickgui-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .cgui-checker {
+    grid-column: span 2;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
 }

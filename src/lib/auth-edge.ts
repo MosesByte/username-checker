@@ -8,6 +8,7 @@ export interface SessionPayload {
   userId: number;
   email: string;
   username?: string | null;
+  name?: string | null;
   role?: string;
 }
 
@@ -28,6 +29,7 @@ export async function verifySession(
       userId: payload.userId as number,
       email: payload.email as string,
       username: payload.username as string | null | undefined,
+      name: payload.name as string | null | undefined,
       role: payload.role as string | undefined,
     };
   } catch {

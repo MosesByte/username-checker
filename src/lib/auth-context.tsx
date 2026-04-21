@@ -14,6 +14,7 @@ interface User {
   userId: number;
   email: string;
   username?: string | null;
+  name?: string | null;
   role?: string;
 }
 
@@ -23,6 +24,7 @@ interface AuthContextValue {
   login: (identifier: string, password: string) => Promise<string | null>;
   register: (
     username: string,
+    name: string,
     email: string,
     password: string,
     inviteCode: string
@@ -59,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (
     username: string,
+    name: string,
     email: string,
     password: string,
     inviteCode: string
@@ -66,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const res = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password, inviteCode }),
+      body: JSON.stringify({ username, name, email, password, inviteCode }),
     });
     const data = await res.json() as { error?: string };
     if (!res.ok) return data.error as string;

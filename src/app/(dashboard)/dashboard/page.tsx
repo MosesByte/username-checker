@@ -1,9 +1,10 @@
 "use client";
 
 import { useAuth } from "@/lib/auth-context";
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { AtSign, Search, ArrowRight } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { DraggablePanel } from "@/components/DraggablePanel";
+import { PanelItem } from "@/components/PanelItem";
+import { CheckerPanel } from "@/components/CheckerPanel";
 
 interface Entry {
   id: number;
@@ -12,150 +13,237 @@ interface Entry {
   url: string;
 }
 
+// ── Panel layout config ─────────────────────────────────────────────────────
+
+const PANEL_IDS = [
+  "dashboard",
+  "checker",
+  "organizer",
+  "platforms",
+  "account",
+  "settings",
+] as const;
+
+type PanelId = (typeof PANEL_IDS)[number];
+
+// Default positions: spread left-to-right matching the previous grid layout.
+// normal panel ≈ 176 px (w-44), checker ≈ 300 px, gap = 8 px.
+const DEFAULT_POS: Record<PanelId, { x: number; y: number }> = {
+  dashboard: { x: 0, y: 0 },
+  checker: { x: 184, y: 0 },
+  organizer: { x: 492, y: 0 },
+  platforms: { x: 676, y: 0 },
+  account: { x: 860, y: 0 },
+  settings: { x: 1044, y: 0 },
+};
+
+// Initial z-stack (higher value = closer to viewer)
+const DEFAULT_Z: Record<PanelId, number> = {
+  dashboard: 16,
+  checker: 15,
+  organizer: 14,
+  platforms: 13,
+  account: 12,
+  settings: 11,
+};
+
+const Z_KEY = "cgui:zmap";
+
+function loadZMap(): Record<PanelId, number> {
+  try {
+    const raw = localStorage.getItem(Z_KEY);
+    if (raw) return JSON.parse(raw) as Record<PanelId, number>;
+  } catch {
+    // ignore
+  }
+  return { ...DEFAULT_Z };
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [zMap, setZMap] = useState<Record<PanelId, number>>({ ...DEFAULT_Z });
 
   useEffect(() => {
     fetch("/api/entries")
       .then((r) => r.json())
-      .then((data) => setEntries(data as Entry[]))
+      .then((d) => setEntries(d as Entry[]))
       .finally(() => setLoading(false));
+
+    // Load persisted z-order after mount (SSR-safe)
+    setZMap(loadZMap());
+  }, []);
+
+  const focus = useCallback((id: PanelId) => {
+    setZMap((prev) => {
+      const max = Math.max(...Object.values(prev));
+      if (prev[id] === max) return prev; // already on top, skip re-render
+      const next = { ...prev, [id]: max + 1 };
+      try {
+        localStorage.setItem(Z_KEY, JSON.stringify(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
   }, []);
 
   const platforms = [...new Set(entries.map((e) => e.platform))];
+  const platformCounts = platforms.reduce<Record<string, number>>((acc, p) => {
+    acc[p] = entries.filter((e) => e.platform === p).length;
+    return acc;
+  }, {});
+  const displayName =
+    user?.name || user?.username || user?.email?.split("@")[0] || "user";
 
   return (
-    <div className="fade-in max-w-6xl">
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <p className="font-mono text-xs uppercase tracking-[0.32em] text-[#B98CF7]">
-            user@dashboard ~
-          </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#f7f0ff] md:text-4xl">
-          Welcome back{user?.email ? `, ${user.email.split("@")[0]}` : ""}
-        </h1>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-[#a99fb8]">
-          A calm command center for your bio links, saved handles and availability checks.
-        </p>
-        </div>
-        <div className="rounded-2xl border border-[#B98CF7]/18 bg-[#B98CF7]/10 px-4 py-3 font-mono text-xs text-[#d8c3ff]">
-          workspace.online
-        </div>
-      </div>
-
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total Entries" value={entries.length} />
-        <StatCard label="Platforms" value={platforms.length} />
-        <StatCard label="Recent Additions" value={entries.slice(0, 5).length} />
-      </div>
-
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <QuickLink
-          href="/organizer"
-          icon={<AtSign size={18} />}
-          title="Organizer"
-          desc="Manage your saved usernames and links"
-        />
-        <QuickLink
-          href="/checker"
-          icon={<Search size={18} />}
-          title="Username Checker"
-          desc="Check availability on lightweight bio platforms"
-        />
-      </div>
-
-      {!loading && entries.length > 0 && (
-        <div>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-mono text-xs uppercase tracking-[0.24em] text-[#B98CF7]">
-              recent_entries
-            </h2>
-            <Link
-              href="/organizer"
-              className="flex items-center gap-1 text-xs text-[#9b91aa] transition-colors hover:text-[#f7f0ff]"
-            >
-              View all <ArrowRight size={12} />
-            </Link>
-          </div>
-          <div className="overflow-hidden rounded-3xl border border-[#B98CF7]/14 bg-black/20">
-            {entries.slice(0, 5).map((entry, i) => (
-              <div
-                key={entry.id}
-                className={`flex items-center justify-between gap-4 px-4 py-3.5 text-sm transition-colors hover:bg-white/[0.03] ${
-                  i !== 0 ? "border-t border-white/[0.06]" : ""
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="w-28 truncate font-mono text-xs text-[#8f849f]">
-                    {entry.platform}
-                  </span>
-                  <span className="text-[#f7f0ff]">@{entry.username}</span>
-                </div>
-                <a
-                  href={entry.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="truncate text-xs text-[#8f849f] transition-colors hover:text-[#B98CF7]"
-                >
-                  {entry.url.replace(/^https?:\/\//, "").slice(0, 30)}
-                </a>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {!loading && entries.length === 0 && (
-        <div className="glass-card rounded-3xl border-dashed p-10 text-center">
-          <p className="text-sm text-[#9b91aa]">No entries yet.</p>
-          <Link
-            href="/organizer"
-            className="mt-3 inline-flex items-center gap-2 rounded-2xl border border-[#B98CF7]/30 bg-[#B98CF7]/15 px-4 py-2 text-sm text-[#f7f0ff] transition-colors hover:bg-[#B98CF7]/25"
-          >
-            Add your first entry <ArrowRight size={14} />
-          </Link>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="glass-card glow-hover rounded-3xl px-5 py-5">
-      <p className="mb-2 font-mono text-[11px] uppercase tracking-[0.22em] text-[#9b91aa]">
-        {label}
-      </p>
-      <p className="text-3xl font-semibold text-[#f7f0ff]">{value}</p>
-    </div>
-  );
-}
-
-function QuickLink({
-  href,
-  icon,
-  title,
-  desc,
-}: {
-  href: string;
-  icon: React.ReactNode;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="glass-card glow-hover group flex items-start gap-4 rounded-3xl px-5 py-5"
+    // min-w forces the workspace wider than the viewport so all panels have room
+    // and the parent's overflow-auto will expose a horizontal scrollbar if needed.
+    <div
+      className="fade-in relative"
+      style={{ minHeight: "800px", minWidth: "1260px" }}
     >
-      <div className="mt-0.5 rounded-2xl border border-[#B98CF7]/20 bg-[#B98CF7]/10 p-3 text-[#B98CF7] transition-colors group-hover:text-[#d8c3ff]">
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm font-medium text-[#f7f0ff]">{title}</p>
-        <p className="mt-1 text-xs leading-5 text-[#9b91aa]">{desc}</p>
-      </div>
-    </Link>
+
+      {/* ── Dashboard ──────────────────────────────────────────────────── */}
+      <DraggablePanel
+        id="dashboard"
+        title="Dashboard"
+        defaultX={DEFAULT_POS.dashboard.x}
+        defaultY={DEFAULT_POS.dashboard.y}
+        zIndex={zMap.dashboard}
+        onFocus={() => focus("dashboard")}
+      >
+        <PanelItem label="Overview" active />
+        <PanelItem
+          label="Total Entries"
+          badge={loading ? "…" : entries.length}
+        />
+        <PanelItem
+          label="Platforms"
+          badge={loading ? "…" : platforms.length}
+        />
+        <PanelItem separator />
+        <PanelItem label="Status" badge="online" />
+        <PanelItem label="Session" badge="active" />
+      </DraggablePanel>
+
+      {/* ── Username Checker ───────────────────────────────────────────── */}
+      <DraggablePanel
+        id="checker"
+        title="Checker"
+        badge="9 platforms"
+        defaultX={DEFAULT_POS.checker.x}
+        defaultY={DEFAULT_POS.checker.y}
+        zIndex={zMap.checker}
+        onFocus={() => focus("checker")}
+        width="wide"
+      >
+        <CheckerPanel />
+      </DraggablePanel>
+
+      {/* ── Organizer ──────────────────────────────────────────────────── */}
+      <DraggablePanel
+        id="organizer"
+        title="Organizer"
+        badge={loading ? "" : entries.length || ""}
+        defaultX={DEFAULT_POS.organizer.x}
+        defaultY={DEFAULT_POS.organizer.y}
+        zIndex={zMap.organizer}
+        onFocus={() => focus("organizer")}
+      >
+        <PanelItem
+          label="All Entries"
+          href="/organizer"
+          badge={loading ? "…" : entries.length}
+        />
+        <PanelItem label="By Platform" href="/organizer" />
+        <PanelItem label="Favorites" muted />
+        <PanelItem separator />
+        <PanelItem label="Add New" href="/organizer" />
+        <PanelItem label="Import" muted />
+        <PanelItem label="Export" muted />
+      </DraggablePanel>
+
+      {/* ── Platforms ──────────────────────────────────────────────────── */}
+      <DraggablePanel
+        id="platforms"
+        title="Platforms"
+        badge={platforms.length || ""}
+        defaultX={DEFAULT_POS.platforms.x}
+        defaultY={DEFAULT_POS.platforms.y}
+        zIndex={zMap.platforms}
+        onFocus={() => focus("platforms")}
+      >
+        {loading ? (
+          <PanelItem label="loading…" muted />
+        ) : platforms.length === 0 ? (
+          <>
+            <PanelItem label="no platforms yet" muted />
+            <PanelItem label="add an entry first" muted />
+          </>
+        ) : (
+          platforms
+            .slice(0, 10)
+            .map((p) => (
+              <PanelItem
+                key={p}
+                label={p}
+                href="/organizer"
+                badge={platformCounts[p]}
+              />
+            ))
+        )}
+      </DraggablePanel>
+
+      {/* ── Account ────────────────────────────────────────────────────── */}
+      <DraggablePanel
+        id="account"
+        title="Account"
+        defaultX={DEFAULT_POS.account.x}
+        defaultY={DEFAULT_POS.account.y}
+        zIndex={zMap.account}
+        onFocus={() => focus("account")}
+      >
+        <PanelItem
+          label={displayName}
+          badge={user?.role === "admin" ? "admin" : "user"}
+          active
+        />
+        <PanelItem label={user?.email?.slice(0, 20) ?? "—"} muted />
+        <PanelItem separator />
+        {user?.role === "admin" && (
+          <PanelItem label="Invite Codes" href="/admin" />
+        )}
+        {user?.role === "admin" && (
+          <PanelItem label="Manage Users" href="/admin" />
+        )}
+        <PanelItem label="Export Data" muted />
+        <PanelItem separator />
+        <PanelItem label="Sign Out" onClick={() => void logout()} />
+      </DraggablePanel>
+
+      {/* ── Settings ───────────────────────────────────────────────────── */}
+      <DraggablePanel
+        id="settings"
+        title="Settings"
+        defaultX={DEFAULT_POS.settings.x}
+        defaultY={DEFAULT_POS.settings.y}
+        zIndex={zMap.settings}
+        onFocus={() => focus("settings")}
+      >
+        <PanelItem label="Theme" badge="dark" muted />
+        <PanelItem label="Language" badge="en" muted />
+        <PanelItem label="Font" badge="mono" muted />
+        <PanelItem separator />
+        <PanelItem label="API Keys" muted />
+        <PanelItem label="Webhooks" muted />
+        <PanelItem separator />
+        <PanelItem label="About" muted />
+      </DraggablePanel>
+
+    </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useAuth } from "@/lib/auth-context";
 import Link from "next/link";
 
@@ -11,7 +11,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
@@ -21,54 +21,66 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-zinc-950 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#08050f] px-4">
       <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <h1 className="text-xl font-semibold text-white">Welcome back</h1>
-          <p className="text-zinc-500 text-sm mt-1">Sign in to your account</p>
+        <div className="mb-6">
+          <p className="font-mono text-xs text-[#B98CF7]">&gt;_ login</p>
         </div>
 
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="border border-[#B98CF7]/20 bg-[#0d0717]">
+          <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[#B98CF7]/15 bg-white/[0.02]">
+            <span className="terminal-dot bg-[#ff5f57]" />
+            <span className="terminal-dot bg-[#febc2e]" />
+            <span className="terminal-dot bg-[#28c840]" />
+            <span className="ml-2 font-mono text-[11px] text-[#6b6278]">username-manager — login</span>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-5 space-y-4">
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Username or email</label>
+              <label className="block font-mono text-[11px] uppercase tracking-widest text-[#6b6278] mb-1.5">
+                username or email
+              </label>
               <input
                 type="text"
                 required
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="moses"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                className="w-full bg-transparent border border-[#B98CF7]/15 px-3 py-2 font-mono text-sm text-[#f3eefc] placeholder-[#3d3547] focus:outline-none focus:border-[#B98CF7]/50 transition-colors"
               />
             </div>
             <div>
-              <label className="block text-xs text-zinc-400 mb-1.5">Password</label>
+              <label className="block font-mono text-[11px] uppercase tracking-widest text-[#6b6278] mb-1.5">
+                password
+              </label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
+                className="w-full bg-transparent border border-[#B98CF7]/15 px-3 py-2 font-mono text-sm text-[#f3eefc] placeholder-[#3d3547] focus:outline-none focus:border-[#B98CF7]/50 transition-colors"
               />
             </div>
 
-            {error && <p className="text-red-400 text-xs">{error}</p>}
+            {error && (
+              <p className="font-mono text-xs text-red-400">&gt; error: {error}</p>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-white text-zinc-900 text-sm font-medium py-2.5 rounded-md hover:bg-zinc-100 transition-colors disabled:opacity-50"
+              className="w-full border border-[#B98CF7]/30 bg-[#B98CF7]/10 px-4 py-2.5 font-mono text-sm text-[#f3eefc] hover:bg-[#B98CF7]/20 hover:border-[#B98CF7]/50 transition-colors disabled:opacity-40 text-left"
             >
-              {loading ? "Signing in..." : "Sign in"}
+              {loading ? "..." : "→ sign in"}
             </button>
           </form>
         </div>
 
-        <p className="text-center text-sm text-zinc-500 mt-4">
-          Don&apos;t have an account?{" "}
-          <Link href="/register" className="text-zinc-300 hover:text-white transition-colors">
-            Register
+        <p className="mt-4 font-mono text-xs text-[#6b6278]">
+          no account?{" "}
+          <Link href="/register" className="text-[#B98CF7] hover:text-[#d8c3ff] transition-colors">
+            register
           </Link>
         </p>
       </div>
